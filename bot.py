@@ -1,4 +1,5 @@
 import aiohttp
+from keepalive import start_web
 import os
 import discord
 from discord.ext import commands
@@ -8,6 +9,7 @@ import importlib
 import pathlib
 
 load_dotenv()
+start_web()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 intents = discord.Intents.default()
