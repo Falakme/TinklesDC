@@ -1,3 +1,4 @@
+
 import aiohttp
 from keepalive import start_web
 import os
@@ -16,12 +17,37 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-CDN_CHANNEL_ID = 1405954610325356726
+CDN_CHANNEL_ID = int(os.getenv('CDN_CHANNEL_ID', '0'))
 
 @bot.event
 async def on_message(message):
     print(f"on_message: channel={message.channel.id}, attachments={len(message.attachments) if hasattr(message, 'attachments') else 'N/A'}, author.bot={message.author.bot}")
     # Only process messages in the cdn channel and skip bot messages
+    # Respond with AI if bot is mentioned
+    if bot.user in message.mentions and not message.author.bot:
+        try:
+            prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
+            if not prompt:
+                await message.reply("Please provide a prompt after mentioning me.")
+                return
+            api_url = 'https://ai.hackclub.com/chat/completions'
+            headers = {'Content-Type': 'application/json'}
+            payload = {
+                "messages": [{"role": "user", "content": prompt}],
+                "model": "qwen/qwen3-32b"
+            }
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, headers=headers, json=payload) as resp:
+                    data = await resp.json()
+                    import re
+                    ai_response = data.get('choices', [{}])[0].get('message', {}).get('content', 'No response.')
+                    # Remove <think>...</think> blocks if present
+                    ai_response = re.sub(r'<think>[\s\S]*?</think>', '', ai_response, flags=re.IGNORECASE).strip()
+                    await message.reply(ai_response)
+        except Exception as e:
+            await message.reply(f"AI error: {e}")
+
     if message.channel.id == CDN_CHANNEL_ID and not message.author.bot:
         # If message has attachments, handle CDN upload
         if message.attachments:
@@ -79,12 +105,13 @@ def load_commands():
                 module.setup(bot)
         except Exception as e:
             print(f"Failed to load command module {module_name}: {e}")
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     try:
         synced = await bot.tree.sync()
-        print(f'Synced {len(synced)} slash commands.')
+        print(f'Globally synced {len(synced)} slash commands.')
     except Exception as e:
         print(f'Error syncing commands: {e}')
 

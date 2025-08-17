@@ -33,14 +33,17 @@ def setup(bot: Bot):
         await interaction.response.send_message("Channel unlocked.")
 
 # /announce [message] – Send club announcements (admin/mod)
-    @bot.tree.command(name="announce", description="Send a club announcement.")
-    @app_commands.describe(message="Announcement message", channel="Channel to send the announcement in")
-    async def announce(interaction: Interaction, message: str, channel: discord.TextChannel = None):
+    @bot.tree.command(name="announce", description="Announce a previously sent message in a specific channel.")
+    @app_commands.describe(message_id="ID of the message to announce", channel="Channel to send the announcement in")
+    async def announce(interaction: Interaction, message_id: str, channel: discord.TextChannel):
         if not is_admin_or_mod(interaction):
             await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
             return
-        target_channel = channel or interaction.channel
-        await target_channel.send(f"📢 Announcement: {message}")
-        await interaction.response.send_message(f"Announcement sent in {target_channel.mention}!", ephemeral=True)
+        try:
+            msg = await channel.fetch_message(int(message_id))
+            await channel.send(f"{msg.content}")
+            await interaction.response.send_message(f"Announcement sent in {channel.mention}!", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"Error: {e}", ephemeral=True)
 
 # /pingall – Ping all members (admin/mod)
